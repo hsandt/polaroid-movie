@@ -199,7 +199,7 @@ class App(object):
             return
 
         # Some data was received
-        print 'line: {}'.format(line)
+        # print 'line: {}'.format(line)
         line = line.strip()
 
         # Detect RFID detected
@@ -221,11 +221,12 @@ class App(object):
         # Detect RFID lost
         if line.startswith('Lost UID Value'):
             # RFID lost
-            print 'RFID lost'.format(rfid_idx, uid)
+            print 'RFID lost'
 
             # OPTIONAL: parse UID and check we lost the previous RFID detected
             uid = re.findall('^Lost UID Value: ([0-9xA-F\s]+)$', line)[0]
             # photo ID is from 1 to 5 but we added dummy ID 0, so it is really like an index
+            rfid_idx = self.rfid_uids.index(uid)
             if rfid_idx == self.sensor_state[0]:
                 print '(#{0} (UID {1}))'.format(rfid_idx, uid)
             else:
@@ -238,14 +239,14 @@ class App(object):
         # Detect PHOTO detected
         if line.startswith('Photo'):
             # Photo found, parse ID from 1 to 3
-            photo_id = re.findall('^Photo: ([0-9]+)$', line)[0]
+            photo_id = int(re.findall('^Photo: ([0-9]+)$', line)[0])
             print 'Photoresistor #{0} detected'.format(photo_id)
             self.on_photo_detected(photo_id)
 
         # Detect PHOTO lost
         if line.startswith('Lost Photo'):
             # Photo found, parse ID from 1 to 3
-            photo_id = re.findall('^Lost Photo: ([0-9]+)$', line)[0]
+            photo_id = int(re.findall('^Lost Photo: ([0-9]+)$', line)[0])
             print 'Photoresistor #{0} lost'.format(photo_id)
             self.on_photo_lost(photo_id)
 

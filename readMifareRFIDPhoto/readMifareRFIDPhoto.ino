@@ -74,13 +74,20 @@ Adafruit_PN532 nfc(PN532_SS);
    #define Serial SerialUSB
 #endif
 
+// ADDED
 // interval between consecutive RFID presence checks in ms (excluding maxRetries / timeout of readPassiveTargetID itself)
 // does not seem
 int detectionInterval = 100;
 // max tries for RFID detection (from 0x01 to 0xFE, around 0s to 1s)
 int maxTries = 0x10;
 
+// ADDED: photo input pins, in order 1-2-3
+int photoInputs[] = {2, 7, 8};
+
 void setup(void) {
+
+  /* RFID setup */
+  
   #ifndef ESP8266
     while (!Serial); // for Leonardo/Micro/Zero
   #endif
@@ -90,6 +97,7 @@ void setup(void) {
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
+  
   if (! versiondata) {
     Serial.print("Didn't find PN53x board");
     while (1); // halt
@@ -110,26 +118,40 @@ void setup(void) {
   nfc.SAMConfig();
   
   Serial.println("Waiting for an ISO14443A Card ...");
+
+  /* PHOTORESISTOR setup */
+
+  pinMode(photoInputs[0], INPUT);
+  pinMode(photoInputs[1], INPUT);
+  pinMode(photoInputs[2], INPUT);
+  
 }
 
 
 void loop(void) {
+
+  /* RFID variables */
+  
   // ADDED: static variables keep data to remember: previously detected RFID and Photoresistor covered
   static bool rfidDetected = false;
   static uint8_t lastRfidUid[] = { 0, 0, 0, 0, 0, 0, 0 };
-  static bool photoDetected[3] = {false, false, false};  // all photoresistors uncovered
-
+  
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
   uint8_t success;
+
+  /* PHOTORESISTOR variables */
+  
+  static bool photoDetected[3] = {false, false, false};  // all photoresistors uncovered
+
+  /* READ NFC */
   
   // Wait for an ISO14443A type cards (Mifare, etc.).  When one is found
   // 'uid' will be populated with the UID, and uidLength will indicate
   // if the uid is 4 bytes (Mifare Classic) or 7 bytes (Mifare Ultralight)
   success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength);
 
-  // ADDED debug
-  // Serial.println("READ");
+  /* RFID detection */
   
   if (success)
   {
@@ -263,5 +285,20 @@ void loop(void) {
       // keeping old uid is fine, but remember it is meaningless until next RFID comes
     }
   }
+
+  /* PHOTORESISTOR detection */
+
+  for (int i = 0; i < 3; ++i) {
+    if (photoDetected[i] && digitalRead(photoInputs[i]) == LOW) {
+      photoDetected[i] = false;
+      Serial.print("Lost Photo: ");
+      Serial.println(i+1);
+    } else if (!photoDetected[i] && digitalRead(photoInputs[i]) == HIGH) {
+      photoDetected[i] = true;
+      Serial.print("Photo: ");
+      Serial.println(i+1);
+    }
+  }
+  
 }
 
