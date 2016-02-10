@@ -37,8 +37,10 @@ class Video(object):
         # print self.fps
 
     def close(self):
-        self.capture.release()
-        self.frame_counter = -1
+        if self.is_open:
+            self.show_blank()
+            self.capture.release()
+            self.frame_counter = -1
 
     @property
     def is_open(self):
@@ -58,11 +60,7 @@ class Video(object):
         if ret:
             cv2.imshow(self.window_name, frame)
         else:
-            height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
-            width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-            white_frame = np.zeros((height, width, 3), np.uint8)
-            white_frame[:] = (255, 255, 255)
-            cv2.imshow(self.window_name, white_frame)
+            self.show_blank()
 
         # http://stackoverflow.com/questions/17158602/playback-loop-option-in-opencv-videos
         self.frame_counter += 1
@@ -75,3 +73,11 @@ class Video(object):
             else:
                 pass
                 # self.close()
+
+    def show_blank(self):
+        if self.capture.isOpened:
+            height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
+            white_frame = np.zeros((height, width, 3), np.uint8)
+            white_frame[:] = (255, 255, 255)
+            cv2.imshow(self.window_name, white_frame)

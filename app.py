@@ -13,6 +13,8 @@ class App(object):
     Attributes:
         rfid_uids              [list(string)] UIDs of the RFID tags, in the format '0x44 0xDE 0xE7 0x53'
         video_filenames        [list(string)] name of the videos associated to the RFID tags, with the same indices
+        sensor_state_to_video_name
+                               [list(string)] name of the videos associated to the RFID/Photo combinations (sensor_state)
         transmission_rate      [int] baud rate
         fps                    [int] frame rate of the update loop, and also of the videos
         fullscreen             [int] should the window be fullscreen?
@@ -20,12 +22,15 @@ class App(object):
         video                  [Video] video wrapper for an
         running                [bool] should be application be running?
         last_input_keycode     [int] keycode of the last input received, -1 if no input received in last frame
+        sensor_state           [list(int)] state of the RFID and photo sensors in the format [RFID, PHOTO1, PHOTO2, PHOTO3]
+                                with RFID = 0 (no RFID), 1, 2 or 3 and PHOTOX = 0 (nothing) or 1 (covered)
 
     """
 
-    def __init__(self, rfid_uids, video_filenames, window_name='window', transmission_rate=9600, fps=25, fullscreen=False):
+    def __init__(self, rfid_uids, video_filenames, sensor_state_to_video_name, window_name='window', transmission_rate=9600, fps=25, fullscreen=False):
         self.rfid_uids = rfid_uids
         self.video_filenames = video_filenames
+        self.sensor_state_to_video_name = sensor_state_to_video_name
         self.window_name = window_name
         self.transmission_rate = transmission_rate
         self.fps = fps
@@ -34,10 +39,7 @@ class App(object):
         self.video = Video(window_name)  # create video wrapper in advance, we will load each video by name later
         self.running = False
         self.last_input_keycode = -1
-
-    def setup(self):
-        pass
-        # self.detect_port()
+        self.sensor_state = [0, False, False, False]
 
     def run(self):
         print 'Run app in window "{}"'.format(self.window_name)
@@ -50,8 +52,10 @@ class App(object):
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN if self.fullscreen else cv2.WINDOW_NORMAL)
 
         self.running = True
+
         lag = 0
         tick_end = cv2.getTickCount()
+
         while self.running:
             tick_start = cv2.getTickCount()
             lag += tick_start - tick_end
@@ -61,7 +65,7 @@ class App(object):
             self.process_input()
 
             # SERIAL PORT INPUT
-            # IMPROVE: we do not need to detect the RFID with a high FPS as rendering the video
+            # IMPROVE: we do not need to detect the RFID/PHOTO with a high FPS as rendering the video
             # hence, we could use a different tick_diff, more tolerant to time variations,
             # only to regularly detect RFID. This would also give more time to the Arduino to buffer
             # RFID information and then send a full line rather than bits of information if the baud rate
@@ -112,6 +116,10 @@ class App(object):
             print 'Switching fullscreen mode from {} to {}'.format(old_fullscreen_mode, new_fullscreen_mode)
             cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, new_fullscreen_mode)
 
+        # Stop current video on S press
+        if self.last_input_keycode == ord('s'):
+            self.stop_video()
+
         # DEBUG: play video on C, V, B
         if self.last_input_keycode == ord('c'):
             self.play_video(self.video_filenames[0], looping=True)
@@ -119,6 +127,22 @@ class App(object):
             self.play_video(self.video_filenames[1])
         if self.last_input_keycode == ord('b'):
             self.play_video(self.video_filenames[2])
+
+        # DEBUG: simulate sensors
+        if self.last_input_keycode == ord('u'):
+            self.on_rfid_detected(1)
+        if self.last_input_keycode == ord('i'):
+            self.on_rfid_detected(2)
+        if self.last_input_keycode == ord('o'):
+            self.on_rfid_detected(3)
+        if self.last_input_keycode == ord('p'):
+            self.on_rfid_detected(4)
+        if self.last_input_keycode == ord('j'):
+            self.toggle_photo_state(1)
+        if self.last_input_keycode == ord('k'):
+            self.toggle_photo_state(2)
+        if self.last_input_keycode == ord('l'):
+            self.toggle_photo_state(3)
 
     def update(self):
         if self.video.is_open:
@@ -146,9 +170,6 @@ class App(object):
             self.serial.open()
             print 'Open serial port: {}'.format(self.serial.port)
 
-    def play_video(self, filename, looping=False):
-        self.video.open(filename, looping)
-
     def read_serial(self):
         """
         Read data received at serial port and trigger corresponding events
@@ -158,16 +179,16 @@ class App(object):
         try:
             line = self.serial.readline()  # ensure short timeout to continue looping quickly if no signal
         except serial.SerialException as e:
-            # There is no new data from serial port, probably sensed RFID
-            # but was removed too fast (continue elegantly
-            # instead of throwing exception as it does usually)
-            print 'Sensed RFID but could not receive new data from serial port'
+            # Lost connection with Arduino
+            print 'Lost connection with Arduino'
+            # close port (port does not seem to close when plugging Arduino out); you can keep last port in self.serial.port
+            self.serial.close()
             return
         except TypeError as e:
             # We lost connection with Arduino, cancel serial port device and wait for next frame to detect another
             # port if possible
             print 'Disconnect of USB->UART occured'
-            self.serial.port = ''
+            # self.serial.port = ''
             # DEBUG
             print 'error: {}'.format(e.message)
             print 'Serial is open? {}'.format(serial.is_open)
@@ -180,13 +201,96 @@ class App(object):
         # Some data was received
         print 'line: {}'.format(line)
         line = line.strip()
+
+        # Detect RFID detected
         if line.startswith('UID Value'):
             # RFID found, parse UID in 'UID Value: 0x44 0xDE 0xE7 0x53' for instance (keep string value)
-            uid = re.findall('UID Value: ([0-9xA-F\s]+)$', line)[0]
+            uid = re.findall('^UID Value: ([0-9xA-F\s]+)$', line)[0]
+            if uid not in self.rfid_uids:
+                print 'Found unknown UID {0}, cannot choose output video'.format(uid)
+                return
+
             rfid_idx = self.rfid_uids.index(uid)
+            if rfid_idx == 0:
+                print 'Found dummy UID {0}, probably an error on Arduino side'.format(uid)
+                return
+
             print 'RFID #{0} detected (UID {1})'.format(rfid_idx, uid)
             self.on_rfid_detected(rfid_idx)
 
+        # Detect RFID lost
+        if line.startswith('Lost UID Value'):
+            # RFID lost
+            print 'RFID lost'.format(rfid_idx, uid)
+
+            # OPTIONAL: parse UID and check we lost the previous RFID detected
+            uid = re.findall('^Lost UID Value: ([0-9xA-F\s]+)$', line)[0]
+            # photo ID is from 1 to 5 but we added dummy ID 0, so it is really like an index
+            if rfid_idx == self.sensor_state[0]:
+                print '(#{0} (UID {1}))'.format(rfid_idx, uid)
+            else:
+                # mismatch error coming from Arduino, but clear current RFID anyway
+                print 'Warning: lost #{0} (UID {1}) whereas last RFID detected was #{2} (UID {3})'\
+                    .format(rfid_idx, uid, self.sensor_state[0], self.rfid_uids[self.sensor_state[0]])
+
+            self.on_rfid_lost()
+
+        # Detect PHOTO detected
+        if line.startswith('Photo'):
+            # Photo found, parse ID from 1 to 3
+            photo_id = re.findall('^Photo: ([0-9]+)$', line)[0]
+            print 'Photoresistor #{0} detected'.format(photo_id)
+            self.on_photo_detected(photo_id)
+
+        # Detect PHOTO lost
+        if line.startswith('Lost Photo'):
+            # Photo found, parse ID from 1 to 3
+            photo_id = re.findall('^Lost Photo: ([0-9]+)$', line)[0]
+            print 'Photoresistor #{0} lost'.format(photo_id)
+            self.on_photo_lost(photo_id)
+
     def on_rfid_detected(self, rfid_idx):
-        self.play_video(self.video_filenames[rfid_idx], looping=True)
+        assert rfid_idx
+        self.sensor_state[0] = rfid_idx  # from 1 to 5
+        self.on_sensor_state_changed()
+
+    def on_rfid_lost(self):
+        self.sensor_state[0] = 0
+        self.on_sensor_state_changed()
+
+    def on_photo_detected(self, photo_id):
+        # photo ID is from 1 to 3 so no need to offset index
+        self.sensor_state[photo_id] = True
+        self.on_sensor_state_changed()
+
+    def on_photo_lost(self, photo_id):
+         # photo ID is from 1 to 3 so no need to offset index
+        self.sensor_state[photo_id] = False
+        self.on_sensor_state_changed()
+
+    def toggle_photo_state(self, photo_id):
+        if not self.sensor_state[photo_id]:
+            self.on_photo_detected(photo_id)
+        else:
+            self.on_photo_lost(photo_id)
+
+
+    def on_sensor_state_changed(self):
+        # play video based on new state (OpenCV VideoCapture interface will also release previous video automatically)
+        video_key = tuple(self.sensor_state)
+        if video_key in self.sensor_state_to_video_name:
+            # lookup corresponding video in dictionary (convert list to tuple since we need hashable keys)
+            print 'Play video for RFID/Photo combination: {}'.format(self.sensor_state)
+            self.play_video(self.sensor_state_to_video_name[video_key], looping=True)
+        else:
+            # if possible, play video with closest sensor state; else
+            print 'WARNING: undefined RFID/Photo combination: {}'.format(self.sensor_state)
+            self.stop_video()
+
+    def play_video(self, filename, looping=False):
+        self.video.open(filename, looping)
+
+    def stop_video(self):
+        """Stop current video and show white frame"""
+        self.video.close()
 
