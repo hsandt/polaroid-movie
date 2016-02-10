@@ -51,6 +51,9 @@ class App(object):
         cv2.namedWindow(self.window_name, cv2.WINDOW_NORMAL)
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN if self.fullscreen else cv2.WINDOW_NORMAL)
 
+        # initial video
+        self.on_sensor_state_changed()
+
         self.running = True
 
         lag = 0
@@ -129,6 +132,8 @@ class App(object):
             self.play_video(self.video_filenames[2])
 
         # DEBUG: simulate sensors
+        if self.last_input_keycode == ord('y'):
+            self.on_rfid_lost()
         if self.last_input_keycode == ord('u'):
             self.on_rfid_detected(1)
         if self.last_input_keycode == ord('i'):
@@ -199,8 +204,10 @@ class App(object):
             return
 
         # Some data was received
-        # print 'line: {}'.format(line)
         line = line.strip()
+
+        # DEBUG
+        # print 'line: {}'.format(line)
 
         # Detect RFID detected
         if line.startswith('UID Value'):
@@ -289,7 +296,7 @@ class App(object):
             self.stop_video()
 
     def play_video(self, filename, looping=False):
-        self.video.open(filename, looping)
+        self.video.open('videos/' + filename, looping)
 
     def stop_video(self):
         """Stop current video and show white frame"""

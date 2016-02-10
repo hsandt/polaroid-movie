@@ -27,16 +27,16 @@ video_filenames = [
 ]
 
 sensor_state_to_video_name = {
-    (1, False, False, False): 'SampleVideo_720x480_1mb.mp4',
-    (1, False, False, True): 'SampleVideo_720x480_2mb.mp4',
-    (1, True, False, False): 'SampleVideo_640x360_1mb.mp4',
-    (1, False, True, False): 'SampleVideo_640x360_1mb.mp4',
-    (2, True, True, False): 'SampleVideo_640x360_1mb.mp4',
-    (2, True, False, False): 'SampleVideo_640x360_1mb.mp4',
-    (3, True, True, False): 'SampleVideo_640x360_1mb.mp4',
-    (3, False, True, False): 'SampleVideo_640x360_1mb.mp4',
-    (4, True, False, False): 'SampleVideo_640x360_1mb.mp4',
-    (4, True, True, False): 'SampleVideo_640x360_1mb.mp4',
+    (0, False, False, False): 'video_0000.mp4',
+    (0, False, False, True): 'video_0001.mp4',
+    (1, False, False, False): 'video_1000.mp4',
+    (1, False, True, False): 'video_1010.mp4',
+    (2, False, False, False): 'video_2000.mp4',
+    (2, True, False, False): 'video_2100.mp4',
+    (3, False, False, False): 'video_3000.mp4',
+    (3, True, True, False): 'video_3110.mp4',
+    (4, False, False, False): 'video_4000.mp4',
+    (4, True, True, True): 'video_4111.mp4',
 }
 
 
