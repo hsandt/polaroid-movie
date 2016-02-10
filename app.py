@@ -30,7 +30,7 @@ class App(object):
         self.transmission_rate = transmission_rate
         self.fps = fps
         self.fullscreen = fullscreen
-        self.serial = serial.Serial(baudrate=transmission_rate)
+        self.serial = serial.Serial(baudrate=transmission_rate, timeout=0.006)  # timeout corresponds to sending 80 octal chars at 115200 baud rate
         self.video = Video(window_name)  # create video wrapper in advance, we will load each video by name later
         self.running = False
         self.last_input_keycode = -1
@@ -56,8 +56,25 @@ class App(object):
             tick_start = cv2.getTickCount()
             lag += tick_start - tick_end
 
+            # KEYBOARD INPUT
+            # IMPROVE: we do not need to check input as fast as rendering, so use a different fps
             self.process_input()
 
+            # SERIAL PORT INPUT
+            # IMPROVE: we do not need to detect the RFID with a high FPS as rendering the video
+            # hence, we could use a different tick_diff, more tolerant to time variations,
+            # only to regularly detect RFID. This would also give more time to the Arduino to buffer
+            # RFID information and then send a full line rather than bits of information if the baud rate
+            # and serial timeout are too low. With a baud rate of 115200 and a timeout of 0.006s, however,
+            # the Arduino can send 80 octal characters on each check which is enough.
+            if not self.serial.is_open:
+                # no port device connected yet or previous device connection was lost
+                # detect any existing serial port
+                self.open_connected_port()
+            if self.serial.is_open:
+                self.read_serial()
+
+            # UPDATE / RENDER
             while lag >= fixed_tick_diff:
                 self.update()
                 lag -= fixed_tick_diff
@@ -88,6 +105,13 @@ class App(object):
         if self.last_input_keycode == 27:
             self.running = False
 
+        # Toggle fullscreen on F press (may not work at times, do not overdo it)
+        if self.last_input_keycode == ord('f'):
+            old_fullscreen_mode = cv2.getWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN)
+            new_fullscreen_mode = cv2.WINDOW_FULLSCREEN if old_fullscreen_mode == cv2.WINDOW_NORMAL else cv2.WINDOW_NORMAL
+            print 'Switching fullscreen mode from {} to {}'.format(old_fullscreen_mode, new_fullscreen_mode)
+            cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN, new_fullscreen_mode)
+
         # DEBUG: play video on C, V, B
         if self.last_input_keycode == ord('c'):
             self.play_video(self.video_filenames[0], looping=True)
@@ -97,13 +121,7 @@ class App(object):
             self.play_video(self.video_filenames[2])
 
     def update(self):
-        # if not self.serial.port:
-        if not self.serial.is_open:
-            # no port device connected yet or previous device connection was lost
-            # detect any existing serial port
-            self.open_connected_port()
-
-        if self.video is not None:
+        if self.video.is_open:
             # to make things simple, we assume that the FPS of the app is the FPS of the video
             self.video.play_next_frame()
 
@@ -138,7 +156,7 @@ class App(object):
         """
         # try-catch adapted from http://stackoverflow.com/questions/28509398/handle-exception-in-pyserial-during-disconnection
         try:
-            line = self.serial.readline()
+            line = self.serial.readline()  # ensure short timeout to continue looping quickly if no signal
         except serial.SerialException as e:
             # There is no new data from serial port, probably sensed RFID
             # but was removed too fast (continue elegantly
@@ -151,15 +169,16 @@ class App(object):
             print 'Disconnect of USB->UART occured'
             self.serial.port = ''
             # DEBUG
+            print 'error: {}'.format(e.message)
             print 'Serial is open? {}'.format(serial.is_open)
             # self.serial.close()  # close port (would be done anyway?)
             return
 
+        if not line:
+            return
+
         # Some data was received
-
-        # DEBUG
-        # print line
-
+        print 'line: {}'.format(line)
         line = line.strip()
         if line.startswith('UID Value'):
             # RFID found, parse UID in 'UID Value: 0x44 0xDE 0xE7 0x53' for instance (keep string value)

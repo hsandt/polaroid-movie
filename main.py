@@ -1,7 +1,7 @@
 from app import App
 
 # Arduino parameters
-transmission_rate = 9600
+transmission_rate = 115200  # serial baud rate
 
 # Video parameters
 fps = 25
@@ -27,7 +27,7 @@ video_filenames = [
 
 
 def main():
-    app = App(rfid_uids, video_filenames, 'window', 9600, fps, fullscreen=False)
+    app = App(rfid_uids, video_filenames, 'window', transmission_rate, fps, fullscreen=False)
     app.run()
 
 
