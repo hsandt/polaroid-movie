@@ -282,21 +282,23 @@ class App(object):
         else:
             self.on_photo_lost(photo_id)
 
-
     def on_sensor_state_changed(self):
         # play video based on new state (OpenCV VideoCapture interface will also release previous video automatically)
         video_key = tuple(self.sensor_state)
         if video_key in self.sensor_state_to_video_name:
             # lookup corresponding video in dictionary (convert list to tuple since we need hashable keys)
             print 'Play video for RFID/Photo combination: {}'.format(self.sensor_state)
-            self.play_video(self.sensor_state_to_video_name[video_key], looping=True)
+            self.play_video(self.sensor_state_to_video_name[video_key], looping=True, same_frame=True)
         else:
             # if possible, play video with closest sensor state; else
             print 'WARNING: undefined RFID/Photo combination: {}'.format(self.sensor_state)
             self.stop_video()
 
-    def play_video(self, filename, looping=False):
-        self.video.open('videos/' + filename, looping)
+    def play_video(self, filename, looping=False, same_frame=False):
+        if same_frame:
+            self.video.open_same_frame('videos/' + filename, looping)
+        else:
+            self.video.open('videos/' + filename, looping)
 
     def stop_video(self):
         """Stop current video and show white frame"""

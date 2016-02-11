@@ -36,6 +36,19 @@ class Video(object):
         # self.fps = self.capture.get(cv2.CAP_PROP_FPS)
         # print self.fps
 
+    def open_same_frame(self, filename, looping=False):
+        """
+        Open video at same frame as the previous video, or 0 if no previous video;
+        prefer with looping and all video of the same duration
+
+        """
+        print 'Open video file {} at same frame'.format(filename)
+        frame_counter = self.frame_counter if self.is_open else 0
+        self.capture.open(filename)  # will also release previous video if any still active
+        self.looping = looping
+        # warp at same time as previous video
+        self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
+
     def close(self):
         if self.is_open:
             self.show_blank()
@@ -61,6 +74,7 @@ class Video(object):
             cv2.imshow(self.window_name, frame)
         else:
             self.show_blank()
+            return
 
         # http://stackoverflow.com/questions/17158602/playback-loop-option-in-opencv-videos
         self.frame_counter += 1
@@ -72,7 +86,6 @@ class Video(object):
                 self.capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
             else:
                 pass
-                # self.close()
 
     def show_blank(self):
         if self.capture.isOpened:

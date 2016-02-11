@@ -81,7 +81,7 @@ int detectionInterval = 200;
 int maxTries = 0x10;
 
 // ADDED: photo input pins, in order 1-2-3
-int photoInputs[] = {2, 7, 8};
+int photoInputs[] = {8, 7, 2};
 
 void setup(void) {
 
