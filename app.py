@@ -12,7 +12,6 @@ class App(object):
 
     Attributes:
         rfid_uids              [list(string)] UIDs of the RFID tags, in the format '0x44 0xDE 0xE7 0x53'
-        video_filenames        [list(string)] name of the videos associated to the RFID tags, with the same indices
         sensor_state_to_video_name
                                [list(string)] name of the videos associated to the RFID/Photo combinations (sensor_state)
         transmission_rate      [int] baud rate
@@ -27,9 +26,9 @@ class App(object):
 
     """
 
-    def __init__(self, rfid_uids, video_filenames, sensor_state_to_video_name, window_name='window', transmission_rate=9600, fps=25, fullscreen=False):
+    def __init__(self, rfid_uids, sensor_state_to_video_name, window_name='window', transmission_rate=9600, fps=25,
+                 fullscreen=False):
         self.rfid_uids = rfid_uids
-        self.video_filenames = video_filenames
         self.sensor_state_to_video_name = sensor_state_to_video_name
         self.window_name = window_name
         self.transmission_rate = transmission_rate
@@ -42,6 +41,10 @@ class App(object):
         self.sensor_state = [0, False, False, False]
 
     def run(self):
+        """
+        Run application by opening window and listening to serial port while rendering videos
+
+        """
         print 'Run app in window "{}"'.format(self.window_name)
         # FPS1 = cvRound( cvGetCaptureProperty(capture1, CV_CAP_PROP_FPS)
         fixed_tick_diff = 1. / self.fps * cv2.getTickFrequency()  # equivalent of delta time, in ticks
@@ -68,12 +71,6 @@ class App(object):
             self.process_input()
 
             # SERIAL PORT INPUT
-            # IMPROVE: we do not need to detect the RFID/PHOTO with a high FPS as rendering the video
-            # hence, we could use a different tick_diff, more tolerant to time variations,
-            # only to regularly detect RFID. This would also give more time to the Arduino to buffer
-            # RFID information and then send a full line rather than bits of information if the baud rate
-            # and serial timeout are too low. With a baud rate of 115200 and a timeout of 0.006s, however,
-            # the Arduino can send 80 octal characters on each check which is enough.
             if not self.serial.is_open:
                 # no port device connected yet or previous device connection was lost
                 # detect any existing serial port
@@ -108,6 +105,10 @@ class App(object):
             self.serial.close()
 
     def process_input(self):
+        """
+        Process keyboard input to quit application and for debugging
+
+        """
         # Quit on ESC press
         if self.last_input_keycode == 27:
             self.running = False
@@ -123,30 +124,22 @@ class App(object):
         if self.last_input_keycode == ord('s'):
             self.stop_video()
 
-        # DEBUG: play video on C, V, B
-        if self.last_input_keycode == ord('c'):
-            self.play_video(self.video_filenames[0], looping=True)
-        if self.last_input_keycode == ord('v'):
-            self.play_video(self.video_filenames[1])
-        if self.last_input_keycode == ord('b'):
-            self.play_video(self.video_filenames[2])
-
         # DEBUG: simulate sensors
-        if self.last_input_keycode == ord('y'):
+        if self.last_input_keycode == ord('d'):
             self.on_rfid_lost()
-        if self.last_input_keycode == ord('u'):
+        if self.last_input_keycode == ord('f'):
             self.on_rfid_detected(1)
-        if self.last_input_keycode == ord('i'):
+        if self.last_input_keycode == ord('g'):
             self.on_rfid_detected(2)
-        if self.last_input_keycode == ord('o'):
+        if self.last_input_keycode == ord('h'):
             self.on_rfid_detected(3)
-        if self.last_input_keycode == ord('p'):
-            self.on_rfid_detected(4)
         if self.last_input_keycode == ord('j'):
+            self.on_rfid_detected(4)
+        if self.last_input_keycode == ord('v'):
             self.toggle_photo_state(1)
-        if self.last_input_keycode == ord('k'):
+        if self.last_input_keycode == ord('b'):
             self.toggle_photo_state(2)
-        if self.last_input_keycode == ord('l'):
+        if self.last_input_keycode == ord('n'):
             self.toggle_photo_state(3)
 
     def update(self):
@@ -155,7 +148,11 @@ class App(object):
             self.video.play_next_frame()
 
     def open_connected_port(self):
-        """Get com port (often '/dev/ttyACM0' or '/dev/ttyACM1'), or keep current port if still present"""
+        """
+        Check if a new port was connected or seek a new serial port (often '/dev/ttyACM0' or '/dev/ttyACM1' on Unix)
+        if the current port is not valid, and start listening to this port
+
+        """
         ports = list(serial.tools.list_ports.comports())
 
         # DEBUG

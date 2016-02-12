@@ -1,8 +1,29 @@
 /**************************************************************************/
 /*! 
+
+This code is based on an example code provided by Adafruit Industries,
+with modifications by Long Nguyen Huu.
+Modifications consist in detecting when objects are covering photoresistors
+connected to the Arduino. In addition, the Arduino only sends messages via
+the serial port when a new RFID tag is placed near the RFID reader or removed,
+and when an object starts covering one of the photoresistors or is removed;
+with, the original code, messages were periodically sent via the serial port
+when an RFID tag was near the RFID reader.
+
+Modifications are licensed under CC-BY. Modifications are marked with comments
+but not all modifications are necessarily be marked. Please refer to Adafruit
+Industries' original example code, available on GitHub:
+https://github.com/adafruit/Adafruit-PN532/blob/master/examples/readMifare/readMifare.pde,
+commit 0a04ff8 on 4 Jan
+
+The original license is written below.
+
+/**************************************************************************/
+/*! 
+
     @file     readMifare.pde
     @author   Adafruit Industries
-	@license  BSD (see license.txt)
+    @license  BSD (see license.txt)
 
     This example will wait for any ISO14443A card or tag, and
     depending on the size of the UID will attempt to read from it.
@@ -31,9 +52,6 @@ These chips use SPI or I2C to communicate.
 Adafruit invests time and resources providing this open source code, 
 please support Adafruit and open-source hardware by purchasing 
 products from Adafruit!
-
-Code modified by hsandt to send signal when losing RFID tag and detecting
-when photoresistors are covered too.
 
 */
 /**************************************************************************/
@@ -74,13 +92,17 @@ Adafruit_PN532 nfc(PN532_SS);
    #define Serial SerialUSB
 #endif
 
-// ADDED
-// interval between consecutive RFID presence checks in ms (excluding maxRetries / timeout of readPassiveTargetID itself)
+/* MODIFICATION: parameters */
+// interval between two consecutive presence checks of RFID tags, in ms (excluding timeout of the presence check itself, see below)
+// the lower, the shorter the reaction time when moving a tag
 int detectionInterval = 200;
-// max tries for RFID detection (from 0x01 to 0xFE, around 0s to 1s)
+// maximum number of times the RFID reader will check presence of an RFID tag before giving up, related to presence check timeout
+// (from 0x01 to 0xFE, which correspond to a timeout of 0s to 1s)
+// the lower, the shorter the reaction time when moving a tag but if too short, the RFID reader may miss the tag's signal sometimes
 int maxTries = 0x10;
-
-// ADDED: photo input pins, in order 1-2-3
+// input pins receiving the tension at the photoresistors' terminals, respectively for photoresistors 1, 2 and 3 in the communicating program
+// on PC/Raspberry-side
+// you can replace the photoresistors with any component having a HIGH tension when an object is present or a switch is activated
 int photoInputs[] = {8, 7, 2};
 
 void setup(void) {
@@ -106,11 +128,10 @@ void setup(void) {
   Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC); 
   Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
 
-  // ADDED
+  /* MODIFICATION: timeout in tag presence check to avoid blocking the loop */
   // Set the max number of retry attempts to read from a card
   // This prevents us from waiting forever for a card, which is
   // the default behaviour of the PN532.
-  // Use any uint8_t value inferior to 0xFF, the lower the value the shorter the timeout (around 0s to 1s for 0xFE)
   nfc.setPassiveActivationRetries(maxTries);
   
   // configure board to read RFID tags
@@ -118,29 +139,28 @@ void setup(void) {
   
   Serial.println("Waiting for an ISO14443A Card ...");
 
-  /* PHOTORESISTOR setup */
-
-  pinMode(photoInputs[0], INPUT);
-  pinMode(photoInputs[1], INPUT);
-  pinMode(photoInputs[2], INPUT);
+  /* MODIFICATION: PHOTORESISTOR setup */
+  for (int i = 0; i < 3; ++i) {
+    pinMode(photoInputs[i], INPUT);
+  }
   
 }
 
 
 void loop(void) {
 
-  /* RFID variables */
-  
-  // ADDED: static variables keep data to remember: previously detected RFID and Photoresistor covered
+  /* MODIFICATION: static RFID variables */
+  // was an RFID tag detected last frame?
   static bool rfidDetected = false;
+  // UID of the last RFID tag detected, and the associated length
   static uint8_t lastRfidUid[] = { 0, 0, 0, 0, 0, 0, 0 };
+  static uint8_t lastUidLength;
   
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };  // Buffer to store the returned UID
   uint8_t uidLength;                        // Length of the UID (4 or 7 bytes depending on ISO14443A card type)
   uint8_t success;
 
-  /* PHOTORESISTOR variables */
-  
+  /* MODIFICATION: static PHOTORESISTOR variables */
   static bool photoDetected[3] = {false, false, false};  // all photoresistors uncovered
 
   /* READ NFC */
@@ -154,40 +174,46 @@ void loop(void) {
   
   if (success)
   {
-//    Serial.println("success");
+    /* MODIFICATION: instead of sending message of tag presence every time, only notify when something changes about the tags */
+    
     bool change = false;
 
     if (rfidDetected)
     {
-      // an RFID was detected last frame, has it changed?
+      // an RFID tag was detected last frame, and now a tag has also been detected. Is it a new one?
       bool sameUid = true;
-      for (int i = 0; i < uidLength; ++i) {
-        if (uid[i] != lastRfidUid[i]) {
-          sameUid = false;
-          break;
+      if (uidLength == lastUidLength)
+      {
+        for (int i = 0; i < uidLength; ++i)
+        {
+          if (uid[i] != lastRfidUid[i])
+          {
+            sameUid = false;
+            break;
+          }
         }
+      }
+      else {
+        // the UIDs do not even have the same length, so they are different
+        sameUid = false;
       }
       
       if (!sameUid)
       {
+        // a *new* RFID was detected
         change = true;
-        // new RFID detected, you may send message to indicate that previous RFID was lost
-        // since our Python code on computer-side will replace old video with new video immediately, we do not need this message
-//        Serial.print("Lost UID Value: ");
-//        nfc.PrintHex(lastRfidUid, uidLength);  // we assume we only use one kind of RFID; else, create another variable to store last RFID UID length
-//        Serial.println("");
-//        Serial.println("Immediate switch to new RFID");
       }
     }
     else
     {
-      // if no RFID before, always considered as a change
+      // there was no RFID tag before and now a tag has been detected, so it is a new one
       rfidDetected = true;
       change = true;
     }
 
     if (change) {
-    
+
+      lastUidLength = uidLength;
       for (int i = 0; i < uidLength; ++i) {
           lastRfidUid[i] = uid[i];
       }
@@ -220,7 +246,7 @@ void loop(void) {
           uint8_t data[16];
   		
           // If you want to write something to block 4 to test with, uncomment
-  		// the following line and this text should be read back in a minute
+          // the following line and this text should be read back in a minute
           //memcpy(data, (const uint8_t[]){ 'a', 'd', 'a', 'f', 'r', 'u', 'i', 't', '.', 'c', 'o', 'm', 0, 0, 0, 0 }, sizeof data);
           // success = nfc.mifareclassic_WriteDataBlock (4, data);
   
@@ -275,21 +301,17 @@ void loop(void) {
   } // end if success
   else
   {
-//    Serial.println("NO success");
-    
-    // ADDED: if no RFID detected but an RFID was detected in the last frame (1s ago), send message in serial port to tell it
+    /* MODIFICATION: lost track of RFID tag previously detected; notify through serial port */ 
     if (rfidDetected) {
       Serial.print("Lost UID Value: ");
-      nfc.PrintHex(lastRfidUid, uidLength);
+      nfc.PrintHex(lastRfidUid, uidLength);  // optional info since we are supposed to know the previous tag UID
       Serial.println("");
-      Serial.flush();
       rfidDetected = false;
-      // keeping old uid is fine, but remember it is meaningless until next RFID comes
+      // keeping old UID in lastRfidUid is fine, but remember its value is meaningless until next RFID tag is detected
     }
   }
 
-  /* PHOTORESISTOR detection */
-
+  /* MODIFICATION: presence check of object covering PHOTORESISTOR */
   for (int i = 0; i < 3; ++i) {
     if (photoDetected[i] && digitalRead(photoInputs[i]) == LOW) {
       photoDetected[i] = false;
@@ -299,9 +321,6 @@ void loop(void) {
       photoDetected[i] = true;
       Serial.print("Photo: ");
       Serial.println(i+1);
-    } else {
-//      Serial.print("no change for ");
-//      Serial.println(i+1);
     }
   }
   

@@ -28,18 +28,19 @@ class Video(object):
         self.looping = looping
 
     def open(self, filename, looping=False):
+        """
+        Open video at the beginning
+
+        """
         print 'Open video file {}'.format(filename)
-        self.capture.open(filename)  # will also release previous video if any still active
         self.frame_counter = 0
+        self.capture.open(filename)  # will also release previous video if any still active
         self.looping = looping
-        # if App and Videos have different FPS, use this
-        # self.fps = self.capture.get(cv2.CAP_PROP_FPS)
-        # print self.fps
 
     def open_same_frame(self, filename, looping=False):
         """
-        Open video at same frame as the previous video, or 0 if no previous video;
-        prefer with looping and all video of the same duration
+        Open video at same frame as the previous video, or 0 if no previous video.
+        Prefer this method with looping and all videos, and with the same duration
 
         """
         print 'Open video file {} at same frame'.format(filename)
@@ -50,6 +51,10 @@ class Video(object):
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
 
     def close(self):
+        """
+        Close video and show blank image
+
+        """
         if self.is_open:
             self.show_blank()
             self.capture.release()
@@ -62,9 +67,12 @@ class Video(object):
     def update(self):
         if self.capture.isOpened():
             self.play_next_frame()
-            # TODO: looping
 
     def play_next_frame(self):
+        """
+        Play next frame or video, or 1st frame if video is looping has reached its end
+
+        """
         ret, frame = self.capture.read()
         # assert ret, 'Video capture: cannot read next frame; video seems to have ended without looping or closing'
 
@@ -88,6 +96,11 @@ class Video(object):
                 pass
 
     def show_blank(self):
+        """
+        Show a white frame
+        Useful to prevent window from showing the last frame of the video 'frozen' when a video stops
+
+        """
         if self.capture.isOpened:
             height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
             width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
