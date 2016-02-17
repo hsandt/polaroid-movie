@@ -1,0 +1,59 @@
+# Project Name
+
+Polaroid Movie is a project that consists in playing videos on a monitor
+when the user puts Polaroid photographs on a physical grid panel. For each photo
+put on a cell of the panel, a matching video which has been filmed beforehand
+is played at the corresponding position in a virtual grid on the monitor.
+
+The current code is only a prototype, however, so videos are been combined together beforehand
+and only a few combinations are possible.
+
+## Installation
+
+Download the repository content or clone it to your computer.
+
+### Dependencies
+
+OpenCV for Python 2.7
+Python package 'pyserial'
+
+## Usage
+
+### Simulation
+
+Run the main application: enter the python directory and run `python main.py`
+Use the debug keys Y, U, I, O, P and J, K, L to simulate putting or removing a photo from
+the physical panel.
+
+### With physical device
+
+1. Install a panel of 3x3 grid cells with MiFare-type RFID readers hidden behind the center cell,
+and photoresistors inserted in holes in 3 other cells. Please refer to the installation diagram below (TODO)
+
+2. Connect the RFID reader and the photoresistors to an Arduino card, following the wiring diagram (see PDF, TODO)
+
+3. Connect the Arduino to your computer, connect your computer to an external monitor, and run the application. Move the application window to the external monitor, which will play the role of virtual grid panel, and press F to enter fullscreen.
+
+4. Make sure your room is lightened.
+
+5. You can now add Polaroid photographs or any other object marked with an RFID tag on the center cell, and any opaque objects to hide the photoresistors, and you will see videos appearing and disappearing from the virtual panel at the corresponding positions.
+
+6. Replace the videos in the videos folder, following the file name convention explained in python/main.py, to customize your experience!
+
+## History
+
+This project was realized by students of Gobelins, l'école de l'image, as a project using
+the Internet of Things (IoT) making use of Polaroid photographs.
+
+## Credits
+
+There are currently no video samples in the repository.
+If we add them, the actors will be:
+Mehdi Tebib
+Magali Monné
+Guillaume Raimbault
+Long Nguyen Huu
+
+## License
+
+See LICENSE.
