@@ -13,13 +13,12 @@ Then, the application will play a video corresponding to the combination code of
 from app import App
 
 __author__ = "Long Nguyen Huu"
-__copyright__ = "Copyright 2007, The Cogent Project"
-__credits__ = ["Long Nguyen Huu"]
+__copyright__ = "Copyright 2016, Team Portraits Animés"
+__credits__ = ["Mehdi Tebib", "Magali Monné", "Guillaume Raimbault", "Long Nguyen Huu"]
 __license__ = "CC-BY-NC"
-__version__ = "0.7"
+__version__ = "1.0"
 __maintainer__ = "Long Nguyen Huu"
 __email__ = "n.huu.long@gmail.com"
-__status__ = "Development"
 
 # Arduino parameters
 transmission_rate = 115200  # serial baud rate
@@ -47,11 +46,11 @@ def main():
 
 def generate_sensor_state_to_video_name():
     """
-    Return dictionary of video filenames per sensor state tuple, in the format 'video_xxxx.mp4' where
-    the 1st x is 0 for no RFID, 1, 2, 3 or 4 for the corresponding RFID tag
-    the 2nd x is 0 for no photo on the photoresistor 1, 1 else
-    the 3rd x is 0 for no photo on the photoresistor 2, 1 else
-    the 4th x is 0 for no photo on the photoresistor 3, 1 else
+    Return dictionary of video filenames per sensor state tuple, in the format 'video_wxyz.mp4' where
+    the w is 0 for no RFID, 1, 2, 3 or 4 for the corresponding RFID tag
+    the x is 0 for no photo on the photoresistor 1, 1 else
+    the y is 0 for no photo on the photoresistor 2, 1 else
+    the z is 0 for no photo on the photoresistor 3, 1 else
 
     Example: video_2010.mp4
 

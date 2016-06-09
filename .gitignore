@@ -107,5 +107,5 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 
-# Project heavy videos
+# Project videos (if you want to only share code)
 /videos/video_*.mp4
