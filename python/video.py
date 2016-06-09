@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from path import get_video_path
+
 
 class Video(object):
     """
@@ -17,15 +19,14 @@ class Video(object):
     def __init__(self, window_name, filename='', looping=False):
         self.window_name = window_name
         self.filename = filename
-        # if filename is provided, immediately open video capture to match OpenCV syntax
-        # else, prepare an empty video wrapper (common usage in this application)
-        if filename:
-            self.capture = cv2.VideoCapture(filename)
-            self.frame_counter = 0
-        else:
-            self.capture = cv2.VideoCapture()
-            self.frame_counter = -1
+        # prepare an empty video wrapper (common usage in this application)
+        self.capture = cv2.VideoCapture()
+        self.frame_counter = -1
         self.looping = looping
+
+        # if filename is provided, similarly to OpenCV video syntax, immediately play video
+        if filename:
+            self.open(filename, looping)
 
     def open(self, filename, looping=False):
         """
@@ -33,9 +34,13 @@ class Video(object):
 
         """
         print 'Open video file {}'.format(filename)
-        self.frame_counter = 0
-        self.capture.open(filename)  # will also release previous video if any still active
+        success = self.capture.open(filename)  # will also release previous video if any still active
+        if not success:
+            print 'Could not open video file'
+            return
+
         self.looping = looping
+        self.frame_counter = 0
 
     def open_same_frame(self, filename, looping=False):
         """
@@ -43,9 +48,16 @@ class Video(object):
         Prefer this method with looping and all videos, and with the same duration
 
         """
-        print 'Open video file {} at same frame'.format(filename)
+        # absolute path with backslash on Windows
+        # see http://stackoverflow.com/questions/21773850/error-opening-file-home-vaibhav-opencv-modules-highgui-src-cap-ffmpeg-impl-hpp
+        filename = get_video_path(filename)
+        print 'Opening video file {} at same frame'.format(filename)
         frame_counter = self.frame_counter if self.is_open else 0
-        self.capture.open(filename)  # will also release previous video if any still active
+        success = self.capture.open(filename)  # will also release previous video if any still active
+        if not success:
+            print 'Could not open video file'
+            return
+
         self.looping = looping
         # warp at same time as previous video
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_counter)
@@ -104,6 +116,8 @@ class Video(object):
         if self.capture.isOpened:
             height = self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)
             width = self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)
-            white_frame = np.zeros((height, width, 3), np.uint8)
+            # VisibleDeprecationWarning: using a non-integer number instead of an integer will result in an error in the future
+            # print height, width
+            white_frame = np.zeros((int(height), int(width), 3), np.uint8)
             white_frame[:] = (255, 255, 255)
             cv2.imshow(self.window_name, white_frame)

@@ -15,6 +15,9 @@ Download the repository content or clone it to your computer.
 ### Dependencies
 
 OpenCV for Python 2.7
+FFmpeg for OpenCV
+(on Windows, drag opencv_ffmpeg[openCV version].dll from OpenCV\opencv\build\bin to [Python root path],
+see http://stackoverflow.com/questions/13834399/cannot-open-mp4-video-files-using-opencv-2-4-3-python-2-7-in-windows-7-machi)
 Python package 'pyserial'
 
 ## Usage

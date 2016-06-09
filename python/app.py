@@ -293,9 +293,9 @@ class App(object):
 
     def play_video(self, filename, looping=False, same_frame=False):
         if same_frame:
-            self.video.open_same_frame('videos/' + filename, looping)
+            self.video.open_same_frame(filename, looping)
         else:
-            self.video.open('videos/' + filename, looping)
+            self.video.open(filename, looping)
 
     def stop_video(self):
         """Stop current video and show white frame"""
