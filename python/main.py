@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 This application works by connecting an Arduino or another similar device to the serial communication port
 of the device running this application (e.g. a laptop computer or a Raspberry Pi). The connected device should
